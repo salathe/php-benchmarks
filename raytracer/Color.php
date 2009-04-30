@@ -120,7 +120,7 @@ class RayTracer_Color {
 	 * @param float $w
 	 * @return unknown
 	 */
-	public function blend(RayTracer_Color $c1, RayTracer_Color $c2, $w)
+	public static function blend(RayTracer_Color $c1, RayTracer_Color $c2, $w)
 	{
 		$result = RayTracer_Color::add(
 		RayTracer_Color::multiplyScalar($c1, 1 - $w),
