@@ -1,35 +1,39 @@
 <?php 
-
 /**
  * Simple timer class.
  */
+class Timer
+{
+    var $starttime;
+    var $elapsed;
 
-class Timer{
-	var $starttime;
-	var $elapsed;
-	
-	function __construct()
-	{
-		$this->starttime = 0;
-		$this->elapsed = 0;
-	}
-	function start()
-	{
-		$this->starttime = $this->_clock();
-		$this->elapsed = 0;
-	}
-	function stop()
-	{
-		$this->elapsed = $this->_clock() - $this->starttime; 
-		$this->starttime = 0;
-	}
-	function _clock()
-	{
-	    $t = microtime(); 
-        $t = explode(' ', $t); 
-        $t = $t[1] + $t[0]; 
-        return $t; 
-	}
+    /**
+     * Constructor for the Timer class
+     */
+    function Timer()
+    {
+        $this->starttime = 0;
+        $this->elapsed   = 0;
+    }
+    /**
+     * Starts the timer.
+     * 
+     * @return void
+     */
+    function start()
+    {
+        $this->starttime = microtime(true);
+        $this->elapsed   = 0;
+    }
+    /**
+     * Stops the timer.
+     * 
+     * @return void
+     */
+    function stop()
+    {
+        $this->elapsed   = microtime(true) - $this->starttime; 
+        $this->starttime = 0;
+    }
 }
-
 ?>
