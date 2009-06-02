@@ -29,7 +29,7 @@
 /**
  * This is a PHP implementation of the Richards
  * benchmark from: http://www.cl.cam.ac.uk/~mr10/Bench.html
- * 
+ *
  * The benchmark was originally implemented in BCPL by
  * Martin Richards.
  */
@@ -96,30 +96,30 @@ function runRichards()
 {
     $scheduler = new Scheduler();
     $scheduler->addIdleTask(ID_IDLE, 0, NULL, COUNT);
-    
+
     $queue = new Packet(NULL, ID_WORKER, KIND_WORK);
     $queue = new Packet($queue, ID_WORKER, KIND_WORK);
     $scheduler->addWorkerTask(ID_WORKER, 1000, $queue);
-    
+
     $queue = new Packet(NULL, ID_DEVICE_A, KIND_DEVICE);
     $queue = new Packet($queue, ID_DEVICE_A, KIND_DEVICE);
     $queue = new Packet($queue, ID_DEVICE_A, KIND_DEVICE);
     $scheduler->addHandlerTask(ID_HANDLER_A, 2000, $queue);
-    
+
     $queue = new Packet(NULL, ID_DEVICE_B, KIND_DEVICE);
     $queue = new Packet($queue,  ID_DEVICE_B, KIND_DEVICE);
     $queue = new Packet($queue,  ID_DEVICE_B, KIND_DEVICE);
     $scheduler->addHandlerTask(ID_HANDLER_B, 3000, $queue);
-    
+
     $scheduler->addDeviceTask(ID_DEVICE_A, 4000, NULL);
-    
+
     $scheduler->addDeviceTask(ID_DEVICE_B, 5000, NULL);
-    
+
     $scheduler->schedule();
-    
+
     if($scheduler->queueCount != EXPECTED_QUEUE_COUNT || $scheduler->holdCount != EXPECTED_HOLD_COUNT)
     {
-        $error = "Error during execution: queueCount = ".$scheduler->queueCount.", holdCount = ".$scheduler->holdCount.".";
+        $error = "Error during execution: queueCount = ".$scheduler->queueCount." exp = ".EXPECTED_QUEUE_COUNT.", holdCount = ".$scheduler->holdCount." exp = ".EXPECTED_HOLD_COUNT.".";
         throw new Exception($error);
     }
 }
@@ -141,7 +141,7 @@ class Scheduler
         $this->currentTcb = NULL;
         $this->currentId = NULL;
     }
-    
+
     /**
      * Add an idle task to this scheduler.
      * @param {int} id the identity of the task
@@ -153,7 +153,7 @@ class Scheduler
     {
         $this->addRunningTask($id, $priority, $queue, new IdleTask($this, 1, $count));
     }
-    
+
     /**
      * Add a work task to this scheduler.
      * @param {int} id the identity of the task
@@ -164,7 +164,7 @@ class Scheduler
     {
         $this->addTask($id, $priority, $queue, new WorkerTask($this, ID_HANDLER_A, 0));
     }
-    
+
     /**
      * Add a handler task to this scheduler.
      * @param {int} id the identity of the task
@@ -175,7 +175,7 @@ class Scheduler
     {
         $this->addTask($id, $priority, $queue, new HandlerTask($this));
     }
-    
+
     /**
      * Add a handler task to this scheduler.
      * @param {int} id the identity of the task
@@ -186,7 +186,7 @@ class Scheduler
     {
         $this->addTask($id, $priority, $queue, new DeviceTask($this));
     }
-    
+
     /**
      * Add the specified task and mark it as running.
      * @param {int} id the identity of the task
@@ -197,9 +197,9 @@ class Scheduler
     function addRunningTask($id, $priority, $queue, $task)
     {
           $this->addTask($id, $priority, $queue, $task);
-          $this->currentTcb->setRunning();        
+          $this->currentTcb->setRunning();
     }
-    
+
     /**
      * Add the specified task to this scheduler.
      * @param {int} id the identity of the task
@@ -213,98 +213,103 @@ class Scheduler
           $this->list = $this->currentTcb;
           $this->blocks[$id] = $this->currentTcb;
     }
-    
+
     /**
      * Execute the tasks managed by this scheduler.
      */
     function schedule()
     {
         $this->currentTcb = $this->list;
-        
+
         while($this->currentTcb !== NULL)
         {
             if($this->currentTcb->isHeldOrSuspended())
             {
                 $this->currentTcb = $this->currentTcb->link;
             }
-            else 
+            else
             {
                 $this->currentId = $this->currentTcb->id;
                 $this->currentTcb = $this->currentTcb->run();
             }
         }
     }
-    
+
     /**
      * Release a task that is currently blocked and return the next block to run.
      * @param {int} id the id of the task to suspend
-     */    
+     */
     function release($id)
     {
         $tcb = $this->blocks[$id];
-        
+
         if($tcb === NULL)
         {
             return $tcb;
         }
-        
+
         $tcb->markAsNotHeld();
-        
+
         if($tcb->priority > $this->currentTcb->priority)
         {
             return $tcb;
         }
-        else 
+        else
         {
             return $this->currentTcb;
         }
     }
-    
+
     /**
      * Block the currently executing task and return the next task control block
      * to run.  The blocked task will not be made runnable until it is explicitly
      * released, even if new work is added to it.
-     */    
+     */
     function holdCurrent()
     {
         $this->holdCount++;
         $this->currentTcb->markAsHeld();
-        
+
         return $this->currentTcb->link;
     }
-    
+
     /**
      * Suspend the currently executing task and return the next task control block
      * to run.  If new work is added to the suspended task it will be made runnable.
-     */    
+     */
     function suspendCurrent()
     {
         $this->currentTcb->markAsSuspended();
-        
+
         return $this->currentTcb;
     }
-    
+
     /**
      * Add the specified packet to the end of the worklist used by the task
      * associated with the packet and make the task runnable if it is currently
      * suspended.
      * @param {Packet} packet the packet to add
-     */    
+     */
     function queue($packet)
-    {        
+    {
         $t = $this->blocks[$packet->id];
-        
+
         if($t === NULL)
         {
+			echo "<pre>";
+				var_dump($packet);
+				debug_print_backtrace();
+			echo "</pre>";
+
             return $t;
         }
-        
+
         $this->queueCount++;
         $packet->link = NULL;
         $packet->id = $this->currentId;
-        
+
         return $t->checkPriorityAdd($this->currentTcb, $packet);
-    }    
+    }
 }
 
 /**
@@ -326,50 +331,50 @@ class TaskControlBlock
         $this->priority = $priority;
         $this->queue = $queue;
         $this->task = $task;
-        
+
         if($queue === NULL)
         {
             $this->state = STATE_SUSPENDED;
         }
-        else 
+        else
         {
             $this->state = STATE_SUSPENDED_RUNNABLE;
         }
     }
-    
+
     function setRunning()
     {
         $this->state = STATE_RUNNING;
     }
-    
+
     function markAsNotHeld()
     {
         $this->state = $this->state & STATE_NOT_HELD;
     }
-    
+
     function markAsHeld()
     {
         $this->state = $this->state | STATE_HELD;
     }
-    
+
     function isHeldOrSuspended()
     {
         return ($this->state & STATE_HELD) != 0 || ($this->state == STATE_SUSPENDED);
     }
-    
+
     function markAsSuspended()
     {
         $this->state = $this->state | STATE_SUSPENDED;
     }
-    
+
     function markAsRunnable()
     {
         $this->state = $this->state | STATE_RUNNABLE;
     }
-    
+
     /**
      * Runs this task, if it is ready to be run, and returns the next task to run.
-     */    
+     */
     function run()
     {
         if($this->state == STATE_SUSPENDED_RUNNABLE)
@@ -380,19 +385,19 @@ class TaskControlBlock
             {
                 $this->state = STATE_RUNNING;
             }
-            else 
+            else
             {
                 $this->state = STATE_RUNNABLE;
             }
         }
-        else 
+        else
         {
             $packet = NULL;
         }
-        
-        return $this->task->run($packet);
+
+		return $this->task->run($packet);
     }
-    
+
     /**
      * Adds a packet to the worklist of this block's task, marks this as runnable if
      * necessary, and returns the next runnable object to run (the one
@@ -404,17 +409,17 @@ class TaskControlBlock
         {
             $this->queue = $packet;
             $this->markAsRunnable();
-            
+
             if($this->priority > $task->priority)
             {
                 return $this;
             }
         }
-        else 
+        else
         {
             $this->queue = $packet->addTo($this->queue);
         }
-        
+
         return $task;
     }
 }
@@ -435,26 +440,26 @@ class IdleTask
         $this->v1 = $v1;
         $this->count = $count;
     }
-    
+
     function run($packet)
     {
         $this->count--;
-        
+
         if($this->count == 0)
         {
             return $this->scheduler->holdCurrent();
         }
-        
+
         if(($this->v1 & 1) == 0)
         {
             $this->v1 = $this->v1 >> 1;
-            
+
             return $this->scheduler->release(ID_DEVICE_A);
         }
-        else 
+        else
         {
             $this->v1 = ($this->v1 >> 1) ^ 0xD008;
-            
+
             return $this->scheduler->release(ID_DEVICE_B);
         }
     }
@@ -473,7 +478,7 @@ class DeviceTask
         $this->scheduler = $scheduler;
         $this->v1 = NULL;
     }
-    
+
     function run($packet)
     {
         if($packet === NULL)
@@ -482,13 +487,13 @@ class DeviceTask
             {
                 $this->scheduler->suspendCurrent();
             }
-            
+
             $v = $this->v1;
             $this->v1 = NULL;
-            
+
             return $this->scheduler->queue($v);
         }
-        else 
+        else
         {
             $this->v1 = $packet;
             return $this->scheduler->holdCurrent();
@@ -511,27 +516,27 @@ class WorkerTask
         $this->v1 = $v1;
         $this->v2 = $v2;
     }
-    
+
     function run($packet)
     {
         if($packet === NULL)
         {
             return $this->scheduler->suspendCurrent();
         }
-        else 
+        else
         {
             if($this->v1 == ID_HANDLER_A)
             {
                 $this->v1 = ID_HANDLER_B;
             }
-            else 
+            else
             {
                 $this->v1 = ID_HANDLER_A;
             }
-            
+
             $packet->id = $this->v1;
             $packet->a1 = 0;
-            
+
             for($i = 0; $i < DATA_SIZE; $i++)
             {
                 $this->v2++;
@@ -541,7 +546,7 @@ class WorkerTask
                     $packet->a2[$i] = $this->v2;
                 }
             }
-            
+
             return $this->scheduler->queue($packet);
         }
     }
@@ -560,7 +565,7 @@ class HandlerTask
         $this->v1 = NULL;
         $this->v2 = NULL;
     }
-    
+
     function run($packet)
     {
         if($packet !== NULL)
@@ -569,16 +574,16 @@ class HandlerTask
             {
                 $this->v1 = $packet->addTo($this->v1);
             }
-            else 
+            else
             {
                 $this->v2 = $packet->addTo($this->v2);
             }
         }
-        
+
         if($this->v1 !== NULL)
         {
             $count = $this->v1->a1;
-            
+
             if($count < DATA_SIZE)
             {
                 if($this->v2 !== NULL)
@@ -586,21 +591,21 @@ class HandlerTask
                     $v = $this->v2;
                     $this->v2 = $this->v2->link;
                     $v->a1 = $this->v1->a2[$count];
-                    
+
                     $this->v1->a1 = $count + 1;
-                    
+
                     return $this->scheduler->queue($v);
                 }
             }
-            else 
+            else
             {
                 $v = $this->v1;
                 $this->v1 = $this->v1->link;
-                
+
                 return $this->sceduler->queue($v);
             }
         }
-        
+
         return $this->scheduler->suspendCurrent();
     }
 }
@@ -627,7 +632,7 @@ class Packet
         $this->a1 = 0;
         $this->a2 = array(0, 0, 0, 0);
     }
-    
+
     /**
      * Add this packet to the end of a worklist, and return the worklist.
      * @param {Packet} queue the worklist to add this packet to
@@ -635,22 +640,22 @@ class Packet
     function addTo($queue)
     {
         $this->link = NULL;
-        
+
         if($queue == NULL)
         {
             return $this;
         }
-        
+
         $peek = $queue;
         $next = $queue;
-        
+
         while(($peek = $next->link) !== NULL)
         {
             $next = $peek;
         }
-        
+
         $next->link = $this;
-        
+
         return $queue;
     }
 }
