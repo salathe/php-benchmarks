@@ -79,20 +79,40 @@ class Benchmark
      */
     var $test_files;
 
+
+    /**
+     * Whether cachegrind should be used or not
+     * @var boolean
+     */
+    var $cachegrind;
+
+    /**
+     * Class for parsing and sorting Smaps-files
+     * @var object
+     */
+    var $smapsparser;
+
+    /**
+     * Switch for showing memory usage or not
+     * @var boolean
+     */
+    var $mem_usage;
+
     /**
      * Constructor for the benchmark class. Uses the PEAR package
      * Console_getargs for command line handling.
      *
      * @return void
      */
-    function Benchmark() 
+    function Benchmark()
     {
         include_once 'misc/getargs.php';
         include_once 'misc/timer.php';
-
+        include_once 'misc/smapsparser.php';
+        include_once 'misc/cachegrindparser.php';
         $this->setConfig();
-        $args =& Console_Getargs::factory($this->config);
-
+        $args              = &Console_Getargs::factory($this->config);
+        $this->smapsparser = new Smapsparser();
         if (PEAR::isError($args) || $args->getValue('help')) {
             $this->printHelp($args);
             exit;
@@ -122,18 +142,20 @@ class Benchmark
         if ($this->log_file == "") {
             $this->log_file = false;
         }
-        $this->quite = $args->getValue('quite');
+        $this->quite      = $args->getValue('quite');
+        $this->mem_usage  = $args->getValue('memory-usage');
+        $this->cachegrind = $args->getValue('cachegrind');
         $this->setTestFiles();
     }
     /**
      * Prints message to the screen
-     * 
+     *
      * @param string $msg   The message to print
      * @param bool   $print Whether to print or not print
-     * 
+     *
      * @return void
      */
-    function console($msg, $print=true) 
+    function console($msg, $print=true)
     {
         if (!$this->quite) {
             if ($print) {
@@ -150,13 +172,13 @@ class Benchmark
      *
      *  @return void
      */
-    function setConfig() 
+    function setConfig()
     {
         $this->config = array(
-            'memory-limit' => array('short' => 'm',
+            'memory-limit' => array('short' => 'ml',
                      'min' => 0,
                      'max' => 1,
-                  'default' => 128,
+                 'default' => 128,
                     'desc' => 'Set the maximum memory usage.'),
             'debug'        => array('short' => 'd',
                      'max' => 0,
@@ -174,21 +196,26 @@ class Benchmark
             'quite'        => array('short' => 'q',
                      'max' => 0,
                     'desc' => 'Don\'t produce any output'),
+            'memory-usage' => array('short' => 'mu',
+                     'max' => 0,
+                    'desc' => 'Show memory statistics. This requires linux with kernel 2.6.14 or newer'),
+            'cachegrind'   => array('max' => 0,
+                    'desc' => 'Enable the valgrind tool that a cache simulation of the test'),
             'log'          => array('min' => 0,
                      'max' => 1,
-                  'default' => 'benchlog.txt',
+                 'default' => 'benchlog.txt',
                     'desc' => 'Log file path')
         );
     }
 
     /**
      *	Prints the help message for the benchmark
-     *	
+     *
      *  @param array $args The arguments to be listed
-     *  
+     *
      *  @return void
      */
-    function printHelp($args) 
+    function printHelp($args)
     {
         $header = "Php Benchmark Example\n".
               'Usage: '.basename($_SERVER['SCRIPT_NAME'])." [options]\n\n";
@@ -231,24 +258,42 @@ class Benchmark
 
     /**
      * Runs the benchmark
-     * 
+     *
      * @return void
      */
-    function run() 
+    function run()
     {
-        $timer     = new Timer();
-        $totaltime = 0;
-        $datetime  = date("Y-m-d H:i:s", time());
-
+        $timer       = new Timer();
+        $totaltime   = 0;
+        $datetime    = date("Y-m-d H:i:s", time());
+        $startstring = "";
         $this->console("--------------- Bench.php ".$datetime."--------------\n");
 
         foreach ($this->test_files as $test) {
-            $cmd = "{$this->php} -d memory_limit={$this->memory_limit}M ".$test['filename'];
+            $output = array();
+            if ($this->cachegrind) {
+                $startstring = "valgrind --tool=cachegrind --branch-sim=yes";
+            }
+            $cmd = "$startstring {$this->php} -d memory_limit={$this->memory_limit}M ".$test['filename'];
             $this->console("$cmd\n", $this->debug);
             $timer->start();
-            $debug =  `$cmd`;
+            list($out, $err, $exit) = $this->completeExec($cmd, null, 0);
+            if ($this->mem_usage) {
+                if (!$this->quite) {
+                    $this->smapsparser->printMaxUsage(10);
+                }
+                if ($this->log_file) {
+                    $this->smapsparser->printMaxUsage(10, $this->log_file);
+                }
+                $this->smapsparser->clear();
+            }
+            if ($this->cachegrind) {
+                $cacheparser = new Cachegrindparser();
+                $result      = $cacheparser->parse($err);
+                print_r($result);
+            }
             $timer->stop();
-            $this->console($debug, $this->debug);
+            $this->console($out, $this->debug);
             $this->console("Results from ".$test['name'].": ".$timer->elapsed."\n");
             $totaltime += $timer->elapsed;
         }
@@ -258,6 +303,127 @@ class Benchmark
         $datetime = date("Y-m-d H:i:s", time());
         $this->console("-------------- END ".$datetime."---------------------\n");
     }
+    /**
+     * Executes a program in proper way. The function is borrowed 
+     * the php compiler project, http://www.phpcompiler.org.
+     *
+     * @param string $command The command to be executed
+     * @param string $stdin   stdin
+     * @param int    $timeout Seconds until it timeouts
+     *
+     * @return array
+     */
+    function completeExec($command, $stdin = null, $timeout = 20)
+    {
+        $descriptorspec = array(0 => array("pipe", "r"),
+        1 => array("pipe", "w"),
+        2 => array("pipe", "w"));
+        $pipes          = array();
+        $handle         = proc_open($command, $descriptorspec, &$pipes, getcwd());
+
+        // read stdin into the process
+        if ($stdin !== null) {
+            fwrite($pipes[0], $stdin);
+        }
+        fclose($pipes[0]);
+        unset($pipes[0]);
+
+        // set non blocking to avoid infinite loops on stuck programs
+        stream_set_blocking($pipes[1], 0);
+        stream_set_blocking($pipes[2], 0);
+
+        $out = "";
+        $err = "";
+
+        $start_time = time();
+        do {
+            // It seems that with a large amount fo output, the process
+            // won't finish unless the buffers are periodically cleared.
+            // (This doesn't seem to be the case is async_test. I don't
+            // know why).
+            $new_out = stream_get_contents($pipes[1]);
+            $new_err = stream_get_contents($pipes[2]);
+            $out    .= $new_out;
+            $err    .= $new_err;
+            $pid     = $this->getChildren($handle, $pipes);
+            if ($this->mem_usage) {
+                if ($data = $this->smapsparser->readSmapsData($pid[0])) {
+                    $this->smapsparser->parseSmapsData($data);
+                }
+            }
+            if ($timeout != 0 && time() > $start_time + $timeout) {
+                $out = stream_get_contents($pipes[1]);
+                $err = stream_get_contents($pipes[2]);
+
+                $this->killProperly($handle, $pipes);
+
+                return array("Timeout", $out, $err);
+            }
+
+            // Since we use non-blocking, the for loop could well take 100%
+            // CPU. time of 1000 - 10000 seems OK. 100000 slows down the
+            // program by 50%.
+            usleep(7000);
+        } while ($status["running"]);
+        stream_set_blocking($pipes[1], 1);
+        stream_set_blocking($pipes[2], 1);
+        $out .= stream_get_contents($pipes[1]);
+        $err .= stream_get_contents($pipes[2]);
+
+        $exit_code = $status["exitcode"];
+        $this->killProperly($handle, $pipes);
+
+        return array($out, $err, $exit_code);
+
+    }
+    /**
+     * Get's the child processes of a shell execution.
+	 *
+     * @param handler &$handle The handler
+     * @param array   &$pipes  The pipes
+     *
+     * @return array  All children processes pid-number.
+     */
+    function getChildren(&$handle, &$pipes)
+    {
+        $status = proc_get_status($handle);
+        $ppid = $status["pid"];
+        $pids = preg_split("/\s+/", trim(`ps -o pid --no-heading --ppid $ppid`));
+        return $pids;
+    }
+    /**
+     * Kills a process properly
+     *
+     * @param handler &$handle The handler
+     * @param array   &$pipes  The pipes
+     *
+     * @return void
+     */
+    function killProperly(&$handle, &$pipes)
+    {
+        
+        // proc_terminate kills the shell process, but won't kill a runaway infinite
+        // loop. Get the child processes using ps, before killing the parent.
+        $pids = $this->getChildren($handle, $pipes);
+
+        // if we dont close pipes, we can create deadlock, leaving zombie processes.
+        foreach ($pipes as &$pipe) {
+            fclose($pipe);
+        }
+        proc_terminate($handle);
+        proc_close($handle);
+
+        // Not necessarily available.
+        if (function_exists("posix_kill")) {
+            foreach ($pids as $pid) {
+                if (is_numeric($pid)) {
+                    posix_kill($pid, 9);
+                }
+            }
+        }
+    }
+
+
 }
 
 $bench = new Benchmark();
