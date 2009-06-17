@@ -337,6 +337,7 @@ class Benchmark
 
         $start_time = time();
         do {
+            $status = proc_get_status($handle);
             // It seems that with a large amount fo output, the process
             // won't finish unless the buffers are periodically cleared.
             // (This doesn't seem to be the case is async_test. I don't
