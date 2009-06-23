@@ -48,7 +48,7 @@ class Benchmark
      * Directories to search for php test files.
      * @var array
      */
-    var $include;
+    var $paths;
 
     /**
      * Path to the php binary
@@ -123,16 +123,19 @@ class Benchmark
         if ($this->memory_limit == "") {
             $this->memory_limit = 128;
         }
-        $this->include = $args->getValue('include');
-        if (is_array($this->include)) {
-            $this->include[] = "tests"; // Append default directory
-        } else {
+        $this->paths = $args->getValue('path');
+	    if (is_string($this->paths)) {
             //user has one directory as input, therefore
-            //$this->include is recognized as a string
-            $tmpdir          = $this->include;
-            $this->include   = array();
-            $this->include[] = $tmpdir;
-            $this->include[] = "tests";
+            //$this->paths is recognized as a string
+            $tmpdir          = $this->paths;
+            $this->paths   = array();
+            $this->paths[] = $tmpdir;
+        } else if (empty($this->paths)) {
+            //There are no included directories
+            //Let's add the default ones
+            $this->paths   = array();
+            $this->paths[] = "tests";
+            $this->paths[] = "microtests";
         }
         $this->php = $args->getValue('php');
         if ($this->php == "") {
@@ -183,9 +186,10 @@ class Benchmark
             'debug'        => array('short' => 'd',
                      'max' => 0,
                     'desc' => 'Switch to debug mode.'),
-            'include'      => array('min' => 0,
+            'path   '      => array('min' => 0,
                      'max' => -1,
-                    'desc' => 'Include additional test directories'),
+                    'desc' => 'Path/paths to php test files',
+	        'default'  => 'microtests, tests'),
             'help'         => array('short' => 'h',
                      'max' => 0,
                     'desc' => 'Print this help message'),
@@ -245,7 +249,7 @@ class Benchmark
     function setTestFiles()
     {
         $files = array();
-        foreach ($this->include as $dir) {
+        foreach ($this->paths as $dir) {
             foreach (glob("$dir/test_*.php") as $filename) {
                 $t['filename'] = $filename;
                 preg_match('/test_(.+)[.]php$/i', $filename, $matches);
