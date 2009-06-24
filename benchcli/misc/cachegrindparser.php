@@ -1,12 +1,20 @@
 <?php
 class Cachegrindparser
 {
+
     /**
-     * Parses the returning string from a cachegrind call
+     * Array of the results that have been parsed
+     * @var array
+     */
+    var $results;
+
+    /**
+     * Parses the returning string from a cachegrind call.
+     * The results are then set into $this->results.
      *
      * @param string $text The text to parse
      *
-     * @return array An array of the results.
+     * @return void
      */
     function parse($text)
     {
@@ -75,7 +83,58 @@ class Cachegrindparser
         // make key-value pairs
         $results = array_combine($match_names, $matches);
 
-        return $results;
+        $this->results = $results;
+    }
+
+    /**
+     * Prints result from the cachegrind output.
+     *
+     * @param string $resource If specified, it will append to this file instead
+     *                         of stdout
+     *
+     * @return void
+     */
+    function printResults($resource = "php://stdout")
+    {
+        $i = 0;
+        if ($resource == "php://stdout") {
+            $fh = fopen($resource, "w");
+        } else {
+            $fh = fopen($resource, "a+");
+        }
+        
+        fprintf($fh, "%'-59s\n", "-");
+        fprintf($fh, "Instructions  			: %10s\n", $this->results['instruction']);
+        fprintf($fh, "L1 misses     			: %10s\n", $this->results['instruction_l1_miss']);
+        fprintf($fh, "L2 misses     			: %10s\n", $this->results['instruction_l2_miss']);
+        
+        fprintf($fh, "\nData        			: %10s\n", $this->results['data']);
+        fprintf($fh, "Data read     			: %10s\n", $this->results['data_read']);
+        fprintf($fh, "Data write    			: %10s\n", $this->results['data_write']);
+        fprintf($fh, "Data L1 misses     		: %10s\n", $this->results['data_l1_miss']);
+        fprintf($fh, "Data L1 write misses		: %10s\n", $this->results['data_l1_miss_write']);
+        fprintf($fh, "Data L1 read misses		: %10s\n", $this->results['data_l1_miss_read']);
+        fprintf($fh, "Data L2 misses     		: %10s\n", $this->results['data_l2_miss']);
+        fprintf($fh, "Data L2 write misses		: %10s\n", $this->results['data_l2_miss_write']);
+        fprintf($fh, "Data L2 read misses		: %10s\n", $this->results['data_l2_miss_read']);
+        
+        fprintf($fh, "\nL2				: %10s\n", $this->results['l2']);
+        fprintf($fh, "L2 writes	         	: %10s\n", $this->results['l2_write']);
+        fprintf($fh, "L2 reads	         	: %10s\n", $this->results['l2_read']);
+        fprintf($fh, "L2 misses	         	: %10s\n", $this->results['l2_miss']);
+        fprintf($fh, "L2 write misses			: %10s\n", $this->results['l2_miss_write']);
+        fprintf($fh, "L2 read misses			: %10s\n", $this->results['l2_miss_read']);
+
+        fprintf($fh, "\nBranches			: %10s\n", $this->results['branch']);
+        fprintf($fh, "Conditional        		: %10s\n", $this->results['branch_conditional']);
+        fprintf($fh, "Indirect	       	 	: %10s\n", $this->results['branch_indirect']);
+        
+        fprintf($fh, "\nBranch mispredictions		: %10s\n", $this->results['branch_misprediction']);
+        fprintf($fh, "Conditional mispredictions	: %10s\n", $this->results['branch_conditional_misprediction']);
+        fprintf($fh, "Indirect mispredictions		: %10s\n", $this->results['branch_indirect_misprediction']);
+                
+        fprintf($fh, "%'-59s\n", "-");
+        fprintf($fh, "%s", "\n");
     }
 }
 ?>
