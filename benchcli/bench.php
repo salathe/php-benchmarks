@@ -79,6 +79,11 @@ class Benchmark
      */
     var $test_files;
 
+    /**
+     * Switch for verbosity
+     * @var boolean
+     */
+    var $verbose;
 
     /**
      * Whether cachegrind should be used or not
@@ -93,11 +98,23 @@ class Benchmark
     var $smapsparser;
 
     /**
+     * Variable that holds the total results if
+     * a tool is used
+     * @var array
+     */
+    var $totresults;
+
+    /**
      * Switch for showing memory usage or not
      * @var boolean
      */
-    var $mem_usage;
+    var $memusage;
 
+    /**
+     * Current tool that is used
+     * @var string
+     */
+    var $tool;
     /**
      * Constructor for the benchmark class. Uses the PEAR package
      * Console_getargs for command line handling.
@@ -124,7 +141,7 @@ class Benchmark
             $this->memory_limit = 128;
         }
         $this->paths = $args->getValue('path');
-	    if (is_string($this->paths)) {
+        if (is_string($this->paths)) {
             //user has one directory as input, therefore
             //$this->paths is recognized as a string
             $tmpdir          = $this->paths;
@@ -145,9 +162,20 @@ class Benchmark
         if ($this->log_file == "") {
             $this->log_file = false;
         }
+        $valid_tools = array("memusage", "cachegrind", "papiex");
+        $tool = $args->getValue('tool');
+        if (!empty($tool)) {
+            if (in_array($tool, $valid_tools)) {
+                $this->$tool = true;
+                $this->tool = $tool;
+            } else {
+                $this->printHelp($args);
+                exit;
+            }
+        }
         $this->quite      = $args->getValue('quite');
-        $this->mem_usage  = $args->getValue('memory-usage');
-        $this->cachegrind = $args->getValue('cachegrind');
+        $this->verbose    = $args->getValue('verbose');
+        $this->totresults = array();
         $this->setTestFiles();
     }
     /**
@@ -186,10 +214,10 @@ class Benchmark
             'debug'        => array('short' => 'd',
                      'max' => 0,
                     'desc' => 'Switch to debug mode.'),
-            'path   '      => array('min' => 0,
+            'path'         => array('min' => 0,
                      'max' => -1,
                     'desc' => 'Path/paths to php test files',
-	        'default'  => 'microtests, tests'),
+            'default'      => 'microtests, tests'),
             'help'         => array('short' => 'h',
                      'max' => 0,
                     'desc' => 'Print this help message'),
@@ -197,14 +225,15 @@ class Benchmark
                      'max' => 1,
                  'default' => 'php',
                     'desc' => 'PHP binary path'),
+            'verbose'      => array('short' => 'v',
+                     'max' => 0),
             'quite'        => array('short' => 'q',
                      'max' => 0,
                     'desc' => 'Don\'t produce any output'),
-            'memory-usage' => array('short' => 'mu',
-                     'max' => 0,
-                    'desc' => 'Show memory statistics. This requires linux with kernel 2.6.14 or newer'),
-            'cachegrind'   => array('max' => 0,
-                    'desc' => 'Enable the valgrind tool that a cache simulation of the test'),
+            'tool'         => array('max' => 1,
+                     'min' => 0,
+                    'desc' => 'Specify which tool you want to use for special measurements. Valid tools are cachegrind, memusage and papiex',
+                 'default' => ""),
             'log'          => array('min' => 0,
                      'max' => 1,
                  'default' => 'benchlog.txt',
@@ -260,6 +289,14 @@ class Benchmark
         $this->test_files = $files;
     }
 
+    function addTotal($result)
+    {
+        foreach ($result as $key => $value) {
+            if (is_numeric($value)) {
+                $this->totresults[$key] += $value;
+            }
+        }
+    }
     /**
      * Runs the benchmark
      *
@@ -272,43 +309,86 @@ class Benchmark
         $datetime    = date("Y-m-d H:i:s", time());
         $startstring = "";
         $this->console("--------------- Bench.php ".$datetime."--------------\n");
-
+        $this->console("PHP version: ".phpversion()."\n");
+        $this->console(php_uname()."\n");
+        if (count($this->test_files) == 0) {
+            $this->console("No test files were found in chosen path: exiting.");
+            die();
+        }
         foreach ($this->test_files as $test) {
             $output = array();
             if ($this->cachegrind) {
                 $startstring = "valgrind --tool=cachegrind --branch-sim=yes";
             }
             $cmd = "$startstring {$this->php} -d memory_limit={$this->memory_limit}M ".$test['filename'];
+
+            $this->console("Start of ".$test['name']."\n");
             $this->console("$cmd\n", $this->debug);
             $timer->start();
             list($out, $err, $exit) = $this->completeExec($cmd, null, 0);
-            if ($this->mem_usage) {
-                if (!$this->quite) {
+            if ($this->memusage) {
+                $res = $this->smapsparser->peak;
+                if (!$this->quite && $this->verbose) {
                     $this->smapsparser->printMaxUsage(10);
                 }
-                if ($this->log_file) {
+                if ($this->log_file && $this->verbose) {
                     $this->smapsparser->printMaxUsage(10, $this->log_file);
                 }
                 $this->smapsparser->clear();
-            }
-            if ($this->cachegrind) {
+            } else if ($this->cachegrind) {
                 $cacheparser = new Cachegrindparser();
-                $result      = $cacheparser->parse($err);
-                print_r($result);
+                $cacheparser->parse($err);
+                $res = $cacheparser->results;
+                if (!$this->quite && $this->verbose) {
+                    $cacheparser->printResults();
+                }
+                if ($this->log_file && $this->verbose) {
+                    $cacheparser->printResults($this->log_file);
+                }
             }
+            if (empty($this->totresults)) {
+                $this->totresults = $res;
+            } else {
+                $this->addTotal($res);
+            }
+
             $timer->stop();
             $this->console($out, $this->debug);
             $this->console("Results from ".$test['name'].": ".$timer->elapsed."\n");
             $totaltime += $timer->elapsed;
         }
-
+        switch ($this->tool) {
+            case "cachegrind":
+                $cacheparser          = new Cachegrindparser();
+                $cacheparser->results = $this->totresults;
+                if (!$this->quite) {
+                    $cacheparser->printResults();
+                }
+                if ($this->log_file) {
+                    $cacheparser->printResults($this->log_file);
+                }
+                break;
+            case "memusage":
+                $this->smapsparser->peak = $this->totresults;
+                if (!$this->quite) {
+                    $this->smapsparser->printSumUsage();
+                }
+                if ($this->log_file) {
+                    $this->smapsparser->printSumUsage($this->log_file);
+                }
+                break;
+            case "papiex":
+                break;
+            default:
+                break;
+        }
         $this->console("Total time for the benchmark: ".$totaltime." seconds\n");
 
         $datetime = date("Y-m-d H:i:s", time());
         $this->console("-------------- END ".$datetime."---------------------\n");
     }
     /**
-     * Executes a program in proper way. The function is borrowed 
+     * Executes a program in proper way. The function is borrowed
      * the php compiler project, http://www.phpcompiler.org.
      *
      * @param string $command The command to be executed
@@ -351,7 +431,7 @@ class Benchmark
             $out    .= $new_out;
             $err    .= $new_err;
             $pid     = $this->getChildren($handle, $pipes);
-            if ($this->mem_usage) {
+            if ($this->memusage) {
                 if ($data = $this->smapsparser->readSmapsData($pid[0])) {
                     $this->smapsparser->parseSmapsData($data);
                 }
@@ -383,7 +463,7 @@ class Benchmark
     }
     /**
      * Get's the child processes of a shell execution.
-	 *
+     *
      * @param handler &$handle The handler
      * @param array   &$pipes  The pipes
      *
@@ -392,8 +472,8 @@ class Benchmark
     function getChildren(&$handle, &$pipes)
     {
         $status = proc_get_status($handle);
-        $ppid = $status["pid"];
-        $pids = preg_split("/\s+/", trim(`ps -o pid --no-heading --ppid $ppid`));
+        $ppid   = $status["pid"];
+        $pids   = preg_split("/\s+/", trim(`ps -o pid --no-heading --ppid $ppid`));
         return $pids;
     }
     /**
@@ -406,7 +486,7 @@ class Benchmark
      */
     function killProperly(&$handle, &$pipes)
     {
-        
+
         // proc_terminate kills the shell process, but won't kill a runaway infinite
         // loop. Get the child processes using ps, before killing the parent.
         $pids = $this->getChildren($handle, $pipes);
