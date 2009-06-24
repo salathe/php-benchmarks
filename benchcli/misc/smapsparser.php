@@ -7,6 +7,7 @@ class Smapsparser
 {
     var $results;
     var $usage;
+    var $peak;
     function Smapsparser()
     {
         $usage = array();
@@ -37,6 +38,8 @@ class Smapsparser
         }
         $result["objects"][] = $last;
         $this->usage[]       = $result;
+        $this->peak = $this->usage[$this->getPeak()];
+        $this->sortMemUsage($this->peak["objects"]);
     }
     function getUsage()
     {
@@ -101,16 +104,14 @@ class Smapsparser
         } else {
             $fh = fopen($resource, "a+");
         }
-        $peak = $this->usage[$this->getPeak()];
-        $this->sortMemUsage($peak["objects"]);
-        fprintf($fh, "VM Size total: %10skB\n", $peak['Size']);
-        fprintf($fh, "RSS          : %10skB Total\n", $peak['Rss']);
-        fprintf($fh, "             : %10skB Shared total\n", $peak['Shared_Dirty'] + $peak["Shared_Clean"]);
-        fprintf($fh, "               %10skB Private Clean\n", $peak['Private_Clean']);
-        fprintf($fh, "               %10skB Private Dirty\n", $peak['Private_Dirty']);
+        fprintf($fh, "VM Size total: %10skB\n", $this->peak['Size']);
+        fprintf($fh, "RSS          : %10skB Total\n", $this->peak['Rss']);
+        fprintf($fh, "             : %10skB Shared total\n", $this->peak['Shared_Dirty'] + $this->peak["Shared_Clean"]);
+        fprintf($fh, "               %10skB Private Clean\n", $this->peak['Private_Clean']);
+        fprintf($fh, "               %10skB Private Dirty\n", $this->peak['Private_Dirty']);
         fprintf($fh, "%10s %10s %10s %-15s\n", "vm size", "Clean", "Dirty", "File name");
         fprintf($fh, "%'-59s\n", "-");
-        foreach ($peak["objects"] as $key) {
+        foreach ($this->peak["objects"] as $key) {
             $i++;
             if ($i > $n) {
                 break;
@@ -124,11 +125,37 @@ class Smapsparser
         }
         fprintf($fh, "%s", "\n");
     }
-
+/**
+     * Prints the summary of the memory usage. 
+     *
+     * @param string $resource If specified, it will append to this file instead
+	 *                         of stdout
+     * 
+     * @return void
+     */
+    function printSumUsage($resource = "php://stdout")
+    {
+        
+        $i = 0;
+        if ($resource == "php://stdout") {
+            $fh = fopen($resource, "w");
+        } else {
+            $fh = fopen($resource, "a+");
+        }
+        
+        fprintf($fh, "%'-59s\n", "-");
+        fprintf($fh, "VM Size total: %10skB\n", $this->peak['Size']);
+        fprintf($fh, "RSS          : %10skB Total\n", $this->peak['Rss']);
+        fprintf($fh, "             : %10skB Shared total\n", $this->peak['Shared_Dirty'] + $this->peak["Shared_Clean"]);
+        fprintf($fh, "               %10skB Private Clean\n", $this->peak['Private_Clean']);
+        fprintf($fh, "               %10skB Private Dirty\n", $this->peak['Private_Dirty']);
+        fprintf($fh, "%'-59s\n", "-");
+        fprintf($fh, "%s", "\n");
+    }
     /**
      * Sorts the memory usage from the array
      *
-     * @param &array &$array The of parsed smaps results to be sorted
+     * @param &array &$array The parsed smaps results to be sorted
      * 
      * @return void
      */
