@@ -256,5 +256,5 @@ $md5Output = hex_md5($plainText);
 /**
  * To see results, uncomment these two lines
  */
-echo "Actual: ".$md5Output."<br />";
-echo "Expected MD5(): ".md5($plainText)."<br />";
+//echo "Actual: ".$md5Output."<br />";
+//echo "Expected MD5(): ".md5($plainText)."<br />";
