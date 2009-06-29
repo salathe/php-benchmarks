@@ -111,6 +111,11 @@ class Benchmark
     var $memusage;
 
     /**
+     * Log file for comparing different runs
+     */
+    var $complog;
+
+    /**
      * Current tool that is used
      * @var string
      */
@@ -144,7 +149,7 @@ class Benchmark
         if (is_string($this->paths)) {
             //user has one directory as input, therefore
             //$this->paths is recognized as a string
-            $tmpdir          = $this->paths;
+            $tmpdir        = $this->paths;
             $this->paths   = array();
             $this->paths[] = $tmpdir;
         } else if (empty($this->paths)) {
@@ -154,6 +159,7 @@ class Benchmark
             $this->paths[] = "tests";
             $this->paths[] = "microtests";
         }
+
         $this->php = $args->getValue('php');
         if ($this->php == "") {
             $this->php = "php";
@@ -171,6 +177,25 @@ class Benchmark
             } else {
                 $this->printHelp($args);
                 exit;
+            }
+        }
+        $this->complog = $args->getValue('complog');
+        if (empty($this->complog)) {
+            $this->complog = false;
+
+        } else if($this->complog == "bench_PHPVERSION_TOOL_PID.txt") {
+            //This is the default log, change PHPVERSION and PID to
+            //the correct values.
+            $this->complog = "bench_".phpversion()."_".$this->tool."_".getmypid().".txt";
+        }
+        $this->comparelogs = $args->getValue('comparison');
+        if(!empty($this->comparelogs)) {
+            if (count($this->comparelogs) == 1) {
+                $this->printHelp($args);
+                exit;
+            } else {
+                $this->compareLogs();
+                exit();
             }
         }
         $this->quite      = $args->getValue('quite');
@@ -237,7 +262,14 @@ class Benchmark
             'log'          => array('min' => 0,
                      'max' => 1,
                  'default' => 'benchlog.txt',
-                    'desc' => 'Log file path')
+                    'desc' => 'Log file path. This is a general log that not is made for comparing results, for that purpose, use complog'),
+            'complog'      => array('min' => 0,
+                     'max' => 1,
+                 'default' => 'bench_PHPVERSION_TOOL_PID.txt',
+                    'desc' => 'Log file made for comparing runs.'),
+            'comparison'   => array('min' => 0,
+                     'max' => -1,
+                    'desc' => 'Log files to compare. All log files must have the same tool used when benchmarked. You must compare at least two log files.')
         );
     }
 
@@ -308,9 +340,10 @@ class Benchmark
         $totaltime   = 0;
         $datetime    = date("Y-m-d H:i:s", time());
         $startstring = "";
+        $res = array();
         $this->console("--------------- Bench.php ".$datetime."--------------\n");
         $this->console("PHP version: ".phpversion()."\n");
-        $this->console(php_uname()."\n");
+        $this->console(php_uname("s")." ".php_uname("r")." ".php_uname("m")."\n");
         if (count($this->test_files) == 0) {
             $this->console("No test files were found in chosen path: exiting.");
             die();
@@ -383,9 +416,198 @@ class Benchmark
                 break;
         }
         $this->console("Total time for the benchmark: ".$totaltime." seconds\n");
-
+        if ($this->complog) {
+            $this->createCompLog($totaltime);
+            $this->console("Comparison log: ".$this->complog." has been created\n");
+        }
         $datetime = date("Y-m-d H:i:s", time());
         $this->console("-------------- END ".$datetime."---------------------\n");
+    }
+    /**
+     * Creates a comparable log. It serializes the totresults array and add some
+     * additional information in the array for comparison details.
+     *
+     * @param int $runtime The total runtime of the benchmark
+     *
+     * @return void
+     */
+    function createCompLog($runtime)
+    {
+        $log                = $this->totresults;
+        $log["php_version"] = phpversion();
+        $log["php_uname"]   = php_uname("s")." ".php_uname("r")." ".php_uname("m");
+        $log["runtime"]     = $runtime;
+        $log["tool"]        = $this->tool;
+        $serialized         = serialize($log);
+        $fh                 = fopen($this->complog,"w");
+        fwrite($fh,$serialized);
+        fclose($fh);
+    }
+    /**
+     * Compare the elements based on runtime.
+     * (Lowest is the best)
+     * 
+     * @param $a First element
+     * @param $b Seconds element
+     * 
+     * @return -1, 1 or 0 depending on the comparison
+     */
+    static function cmpRuntime($a,$b)
+    {
+        if ($a['runtime'] == $b['runtime']) {
+            return 0;
+        }
+        return ($a['runtime'] > $b['runtime']) ? 1 : -1;
+    }
+    /**
+     * Compare the number of instructions
+     * (Lowest is the best)
+     * 
+     * @param $a First element
+     * @param $b Seconds element
+     * 
+     * @return -1, 1 or 0 depending on the comparison
+     */
+    static function cmpInstructions($a,$b)
+    {
+        if ($a['instruction'] == $b['instruction']) {
+            return 0;
+        }
+        return ($a['instruction'] > $b['instruction']) ? 1 : -1;
+    }
+    /**
+     * Compare elements based on VM Size
+     * (Lowest is the best)
+     * 
+     * @param $a First element
+     * @param $b Seconds element
+     * 
+     * @return -1, 1 or 0 depending on the comparison
+     */
+    static function cmpMemusage($a,$b)
+    {
+        if ($a['Size'] == $b['Size']) {
+            return 0;
+        }
+        return ($a['Size'] > $b['Size']) ? 1 : -1;
+    }
+    /**
+     * Compare the branch mispredictions
+     * (Lowest is the best)
+     * 
+     * @param $a First element
+     * @param $b Seconds element
+     * 
+     * @return -1, 1 or 0 depending on the comparison
+     */
+    static function cmpBranchmispredictions($a,$b)
+    {
+        if ($a['branch_misprediction'] == $b['branch_misprediction']) {
+            return 0;
+        }
+        return ($a['branch_misprediction'] > $b['branch_misprediction']) ? 1 : -1;
+    }
+    /**
+     *  Compare the total cache misses
+     * (Lowest is the best)
+     * 
+     * @param $a First element
+     * @param $b Seconds element
+     * 
+     * @return -1, 1 or 0 depending on the comparison
+     */
+    static function cmpCachemisses($a,$b)
+    {
+        $totA = $a['instruction_l1_miss'] + $a['data_l1_miss'] + $a['data_l2_miss'] + $a['data_l2_miss'];
+        $totB = $b['instruction_l1_miss'] + $b['data_l1_miss'] + $b['data_l2_miss'] + $b['data_l2_miss'];
+        if ($totA == $totB) {
+            return 0;
+        }
+        return ($totA > $totB) ? 1 : -1;
+    }
+    /**
+     * Compares the log files and prints the results. It do only compare runs that have used
+     * the same benchmark-tools, ie: memusage or cachegrind.
+     * 
+     * @return void
+     */
+    function compareLogs()
+    {
+        $results = array();
+        $this->console("--------------- bench.php Comparison --------------\n");
+        $tool = "";
+        foreach ($this->comparelogs as $log) {
+            if ($temp = file_get_contents($log)) {
+                $res = unserialize($temp);
+                if ($res['tool'] != $tool && $tool != "") {
+                    $this->console("The benchmarks do not have the same tools benchmarked. Exiting\n");
+                    exit;
+                }
+                $results[] = $res;
+                $tool = $res['tool'];
+            } else {
+                $this->console("File: $log could not be found. Exiting\n");
+                exit;
+            }
+        }
+        $this->printComparison($results);
+        $this->console("--------------- bench.php End Comparison -----------\n");
+    }
+    /**
+     * Prints the comparison results of the selected results
+     * 
+     * @param array $results List of results to be compared
+     * 
+     * @return void
+     */
+    function printComparison($results)
+    {
+        $tool = $results[0]['tool'];
+        $winmem = "";
+        $wintime = "";
+        switch ($tool) {
+            case "cachegrind":
+                usort($results, "Benchmark::cmpInstructions");
+                $wininstructions = $results[0]['instruction'];
+                usort($results, "Benchmark::cmpCachemisses");
+                $totcachemisses = $results[0]['instruction_l1_miss'] + $results[0]['data_l1_miss'] + $results[0]['data_l2_miss'] + $results[0]['data_l2_miss'];
+                usort($results, "Benchmark::cmpBranchmispredictions");
+                $branchmispred  = $results[0]['branch_misprediction'];
+                printf("%-15s %-35s %-22s %-20s %-20s\n", "PHP version", "PHP uname", "Branch Mispred.", "Instructions","Cache misses");
+                foreach ($results as $result) {
+                    $loinstr         = sprintf("%e", $result["instruction"])." (".round((($result["instruction"]/$wininstructions)),1)*100 ."%)";
+                    $lototcache      = $result['instruction_l1_miss'] + $result['data_l1_miss'] + $result['data_l2_miss'] + $result['data_l2_miss'];
+                    $locachemiss     = sprintf("%e", $lototcache)." (".round((($lototcache/$totcachemisses)),1)*100 ."%)";
+                    $lobranchmispred = sprintf("%e", $result["branch_misprediction"]). " (".round((($result["branch_misprediction"]/$branchmispred)),1)*100 . "%)";
+                    printf("%-15s %-35s %-22s %-20s %-20s\n", $result['php_version'], $result['php_uname'],$lobranchmispred, $loinstr,$locachemiss);
+                }
+                break;
+            case "memusage":
+                usort($results, "Benchmark::cmpRuntime");
+                $wintime = $results[0]['runtime'];
+                usort($results, "Benchmark::cmpMemusage");
+                $winmem = $results[0]['Size'];
+                printf("%-15s %-35s %-17s %-15s\n", "PHP version", "PHP uname", "Runtime", "VM Size");
+                foreach ($results as $result) {
+                    $loruntime = round($result["runtime"],1)."s (".(round($result["runtime"]/$wintime,2)*100)."%)";
+                    $lomem     = round($result["Size"]/1024,1)."mB (".round((($result["Size"]/$winmem)),1)*100 ."%)";
+                    printf("%-15s %-35s %-17s %-15s \n", $result['php_version'], $result['php_uname'], $loruntime,$lomem);
+                }
+                break;
+            case "papiex":
+                break;
+            default:
+                //Sort benchmark results by runtime
+                usort($results, "Benchmark::cmpRuntime");
+                $wintime = $results[0]['runtime'];
+                printf("%-15s %-35s %-17s\n", "PHP version", "PHP uname", "Runtime");
+                foreach ($results as $result) {
+                    $loruntime = round($result["runtime"],1)."s (".(round($result["runtime"]/$wintime,2)*100)."%)";
+                    printf("%-15s %-35s %-17s %-15s \n", $result['php_version'], $result['php_uname'], $loruntime);
+                }
+                break;
+        }
+
     }
     /**
      * Executes a program in proper way. The function is borrowed
@@ -448,7 +670,7 @@ class Benchmark
             // Since we use non-blocking, the for loop could well take 100%
             // CPU. time of 1000 - 10000 seems OK. 100000 slows down the
             // program by 50%.
-            usleep(7000);
+            usleep(50000);
         } while ($status["running"]);
         stream_set_blocking($pipes[1], 1);
         stream_set_blocking($pipes[2], 1);
