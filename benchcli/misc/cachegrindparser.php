@@ -104,34 +104,34 @@ class Cachegrindparser
         }
         
         fprintf($fh, "%'-59s\n", "-");
-        fprintf($fh, "Instructions  			: %10s\n", $this->results['instruction']);
-        fprintf($fh, "L1 misses     			: %10s\n", $this->results['instruction_l1_miss']);
-        fprintf($fh, "L2 misses     			: %10s\n", $this->results['instruction_l2_miss']);
+        fprintf($fh, "%-27s: %10e\n", "Instructions", $this->results['instruction']);
+        fprintf($fh, "%-27s: %10e\n", "L1 misses",$this->results['instruction_l1_miss']);
+        fprintf($fh, "%-27s: %10e\n\n", "L2 misses", $this->results['instruction_l2_miss']);
         
-        fprintf($fh, "\nData        			: %10s\n", $this->results['data']);
-        fprintf($fh, "Data read     			: %10s\n", $this->results['data_read']);
-        fprintf($fh, "Data write    			: %10s\n", $this->results['data_write']);
-        fprintf($fh, "Data L1 misses     		: %10s\n", $this->results['data_l1_miss']);
-        fprintf($fh, "Data L1 write misses		: %10s\n", $this->results['data_l1_miss_write']);
-        fprintf($fh, "Data L1 read misses		: %10s\n", $this->results['data_l1_miss_read']);
-        fprintf($fh, "Data L2 misses     		: %10s\n", $this->results['data_l2_miss']);
-        fprintf($fh, "Data L2 write misses		: %10s\n", $this->results['data_l2_miss_write']);
-        fprintf($fh, "Data L2 read misses		: %10s\n", $this->results['data_l2_miss_read']);
+        fprintf($fh, "%-27s: %10e\n", "Data", $this->results['data']);
+        fprintf($fh, "%-27s: %10e\n", "Data read", $this->results['data_read']);
+        fprintf($fh, "%-27s: %10e\n", "Data write", $this->results['data_write']);
+        fprintf($fh, "%-27s: %10e\n", "Data L1 misses", $this->results['data_l1_miss']);
+        fprintf($fh, "%-27s: %10e\n", "Data L1 write misses", $this->results['data_l1_miss_write']);
+        fprintf($fh, "%-27s: %10e\n", "Data L1 read misses", $this->results['data_l1_miss_read']);
+        fprintf($fh, "%-27s: %10e\n", "Data L2 misses", $this->results['data_l2_miss']);
+        fprintf($fh, "%-27s: %10e\n", "Data L2 write misses", $this->results['data_l2_miss_write']);
+        fprintf($fh, "%-27s: %10e\n\n", "Data L2 read misses", $this->results['data_l2_miss_read']);
         
-        fprintf($fh, "\nL2				: %10s\n", $this->results['l2']);
-        fprintf($fh, "L2 writes	         	: %10s\n", $this->results['l2_write']);
-        fprintf($fh, "L2 reads	         	: %10s\n", $this->results['l2_read']);
-        fprintf($fh, "L2 misses	         	: %10s\n", $this->results['l2_miss']);
-        fprintf($fh, "L2 write misses			: %10s\n", $this->results['l2_miss_write']);
-        fprintf($fh, "L2 read misses			: %10s\n", $this->results['l2_miss_read']);
+        fprintf($fh, "%-27s: %10e\n", "L2", $this->results['l2']);
+        fprintf($fh, "%-27s: %10e\n", "L2 writes", $this->results['l2_write']);
+        fprintf($fh, "%-27s: %10e\n", "L2 reads", $this->results['l2_read']);
+        fprintf($fh, "%-27s: %10e\n", "L2 misses", $this->results['l2_miss']);
+        fprintf($fh, "%-27s: %10e\n", "L2 write misses", $this->results['l2_miss_write']);
+        fprintf($fh, "%-27s: %10e\n", "L2 read misses", $this->results['l2_miss_read']);
 
-        fprintf($fh, "\nBranches			: %10s\n", $this->results['branch']);
-        fprintf($fh, "Conditional        		: %10s\n", $this->results['branch_conditional']);
-        fprintf($fh, "Indirect	       	 	: %10s\n", $this->results['branch_indirect']);
+        fprintf($fh, "%-27s: %10e\n", "Branches", $this->results['branch']);
+        fprintf($fh, "%-27s: %10e\n", "Conditional", $this->results['branch_conditional']);
+        fprintf($fh, "%-27s: %10e\n\n", "Indirect", $this->results['branch_indirect']);
         
-        fprintf($fh, "\nBranch mispredictions		: %10s\n", $this->results['branch_misprediction']);
-        fprintf($fh, "Conditional mispredictions	: %10s\n", $this->results['branch_conditional_misprediction']);
-        fprintf($fh, "Indirect mispredictions		: %10s\n", $this->results['branch_indirect_misprediction']);
+        fprintf($fh, "%-27s: %10e\n", "Branch mispredictions", $this->results['branch_misprediction']);
+        fprintf($fh, "%-27s: %10e\n", "Conditional mispredictions", $this->results['branch_conditional_misprediction']);
+        fprintf($fh, "%-27s: %10e\n", "Indirect mispredictions", $this->results['branch_indirect_misprediction']);
                 
         fprintf($fh, "%'-59s\n", "-");
         fprintf($fh, "%s", "\n");
