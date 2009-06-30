@@ -384,7 +384,7 @@ class Benchmark
             } else {
                 $this->addTotal($res);
             }
-
+            
             $timer->stop();
             $this->console($out, $this->debug);
             $this->console("Results from ".$test['name'].": ".$timer->elapsed."\n");
@@ -415,7 +415,7 @@ class Benchmark
             default:
                 break;
         }
-        $this->console("Total time for the benchmark: ".$totaltime." seconds\n");
+        $this->console("Total time for the benchmark: ".round($totaltime,1)." seconds\n");
         if ($this->complog) {
             $this->createCompLog($totaltime);
             $this->console("Comparison log: ".$this->complog." has been created\n");
@@ -476,7 +476,7 @@ class Benchmark
         return ($a['instruction'] > $b['instruction']) ? 1 : -1;
     }
     /**
-     * Compare elements based on VM Size
+     * Compare elements based on Private RSS
      * (Lowest is the best)
      * 
      * @param $a First element
@@ -486,10 +486,12 @@ class Benchmark
      */
     static function cmpMemusage($a,$b)
     {
-        if ($a['Size'] == $b['Size']) {
+        $pA = $a['Private_Dirty'] + $a['Private_Clean'];
+        $pB = $a['Private_Dirty'] + $a['Private_Clean'];
+        if ($pA == $pB) {
             return 0;
         }
-        return ($a['Size'] > $b['Size']) ? 1 : -1;
+        return ($pA > $pB) ? 1 : -1;
     }
     /**
      * Compare the branch mispredictions
@@ -586,11 +588,12 @@ class Benchmark
                 usort($results, "Benchmark::cmpRuntime");
                 $wintime = $results[0]['runtime'];
                 usort($results, "Benchmark::cmpMemusage");
-                $winmem = $results[0]['Size'];
-                printf("%-15s %-35s %-17s %-15s\n", "PHP version", "PHP uname", "Runtime", "VM Size");
+                $winmem = $results[0]['Private_Clean'] + $results[0]['Private_Dirty'];
+                printf("%-15s %-35s %-17s %-15s\n", "PHP version", "PHP uname", "Runtime", "Private RSS");
                 foreach ($results as $result) {
+                    $mem       = $result['Private_Clean'] + $result['Private_Dirty'];
                     $loruntime = round($result["runtime"],1)."s (".(round($result["runtime"]/$wintime,2)*100)."%)";
-                    $lomem     = round($result["Size"]/1024,1)."mB (".round((($result["Size"]/$winmem)),1)*100 ."%)";
+                    $lomem     = round($mem/1024,1)."mB (".round((($mem/$winmem)),1)*100 ."%)";
                     printf("%-15s %-35s %-17s %-15s \n", $result['php_version'], $result['php_uname'], $loruntime,$lomem);
                 }
                 break;
@@ -640,7 +643,7 @@ class Benchmark
 
         $out = "";
         $err = "";
-
+    
         $start_time = time();
         do {
             $status = proc_get_status($handle);
