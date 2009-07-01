@@ -13,6 +13,7 @@
  * This code is released into the public domain
  * http://www.tapouillo.com/firefox_extension/sourcecode.txt
  */
+
 function zeroFill($a, $b)
 {
 	$z = hexdec(80000000);
@@ -29,6 +30,17 @@ function zeroFill($a, $b)
 	}
 
 	return $a;
+}
+
+/**
+ * setLength function by Alexander Hjalmarsson
+ */
+function setLength(&$array,$length)
+{
+    for ($i = 0; $i < $length; $i++)
+    {
+        $array[] = "";
+    }
 }
 
 /*
@@ -163,7 +175,7 @@ function KeyExpansion($key)
 	$Nr = $Nk + 6;       // no of rounds: 10/12/14 for 128/192/256-bit keys
 
 	$w = array($Nb * ($Nr + 1));
-	$temp = array();
+	setLength($temp, 4);
 
 	for($i = 0; $i < $Nk; $i++)
 	{
@@ -294,13 +306,13 @@ function AESEncryptCtr($plaintext, $password, $nBits)
 	// initialise counter block (NIST SP800-38A §B.2): millisecond time-stamp for nonce in 1st 8 bytes,
 	// block counter in 2nd 8 bytes
 	$blockSize = 16;  // block size fixed at 16 bytes / 128 bits (Nb=4) for AES
-	$counterBlock = array($blockSize);  // block size fixed at 16 bytes / 128 bits (Nb=4) for AES
-	$nonce = time();  // milliseconds since 1-Jan-1970
+    setLength($counterBlock, $blockSize); // block size fixed at 16 bytes / 128 bits (Nb=4) for AES
+	$nonce = 1262304001;//floatval(time().substr(microtime(), 2, 3));  // milliseconds since 1-Jan-1970
 
 	// encode nonce in two stages to cater for JavaScript 32-bit limit on bitwise ops
 	for($i = 0; $i < 4; $i++)
 	{
-		$counterBlock[$i] = zeroFill($nonce , $i * 8) & 0xff;
+		$counterBlock[$i] = zeroFill($nonce, $i * 8) & 0xff;
 	}
 	for($i = 0; $i < 4; $i++)
 	{
@@ -309,7 +321,6 @@ function AESEncryptCtr($plaintext, $password, $nBits)
 
 	// generate key schedule - an expansion of the key into distinct Key Rounds for each round
 	$keySchedule = KeyExpansion($key);
-
 	$blockCount = ceil(strlen($plaintext) / $blockSize);
 	$ciphertext = array($blockCount);  // ciphertext as array of strings
 
@@ -339,7 +350,7 @@ function AESEncryptCtr($plaintext, $password, $nBits)
 		{
 			$plaintextByte = ord($plaintext[$b * $blockSize + $i]);
 			$cipherByte = $plaintextByte ^ $cipherCntr[$i];
-			$ct += chr($cipherByte);
+			$ct .= chr($cipherByte);
 		}
 		// ct is now ciphertext for this block
 
@@ -350,7 +361,7 @@ function AESEncryptCtr($plaintext, $password, $nBits)
 	$ctrTxt = '';
 	for($i = 0; $i < 8; $i++)
 	{
-		$ctrTxt += chr($counterBlock[$i]);
+		$ctrTxt .= chr($counterBlock[$i]);
 	}
 
 	$ctrTxt = escCtrlChars($ctrTxt);
@@ -374,7 +385,7 @@ function AESDecryptCtr($ciphertext, $password, $nBits)
 	}
 
 	$nBytes = $nBits / 8;  // no bytes in key
-	$pwBytes = array($nBytes);
+    setLength($pwBytes, $nBytes);
 
 	for($i = 0; $i < $nBytes; $i++)
 	{
@@ -392,21 +403,16 @@ function AESDecryptCtr($ciphertext, $password, $nBits)
 
 	// recover nonce from 1st element of ciphertext
 	$blockSize = 16;  // block size fixed at 16 bytes / 128 bits (Nb=4) for AES
+    setLength($counterBlock, $blockSize);
 
-	$counterBlock = array();
-	for($i = 0; $i < 16; $i++)
-	{
-		$counterBlock[] = NULL;
-	}
-
-	$ctrTxt = $ciphertext[0];
+	$ctrTxt = unescCtrlChars($ciphertext[0]);
 
 	for($i = 0; $i < 8; $i++)
 	{
 		$counterBlock[$i] = ord($ctrTxt[$i]);
 	}
 
-	$plaintext = array(count($ciphertext) - 1);
+    setLength($plaintext, count($ciphertext) - 1);
 
 	for($b = 1; $b < count($ciphertext); $b++)
 	{
@@ -431,7 +437,7 @@ function AESDecryptCtr($ciphertext, $password, $nBits)
 			// -- xor plaintext with ciphered counter byte-by-byte --
 			$ciphertextByte = ord($ciphertext[$b][$i]);
 			$plaintextByte = $ciphertextByte ^ $cipherCntr[$i];
-			$pt += chr($plaintextByte);
+			$pt .= chr($plaintextByte);
 		}
 		// pt is now plaintext for this block
 
@@ -446,14 +452,14 @@ function AESDecryptCtr($ciphertext, $password, $nBits)
 // escape control chars which might cause problems handling ciphertext
 function escCtrlChars($str)
 {
-	return preg_replace('/[\0\t\n\v\f\r\xa0\'\"!-]/i', "!".ord($str[0])."!", $str);
-	// \xa0 to cater for bug in Firefox; include '-' to leave it free for use as a block marker
+    return preg_replace('/([\0\t\n\v\f\r\'\"!-])/ie', '"!".ord(substr("$1",0,1))."!"', $str);
+    // \xa0 to cater for bug in Firefox; include '-' to leave it free for use as a block marker
 }
 
 // unescape potentially problematic control characters
 function unescCtrlChars($str)
 {
-	return preg_replace("/!\d\d?\d?!/i", chr(substr($str, 1, -1)), $str);
+	return preg_replace("/(!\d\d?\d?!)/ie", 'chr(substr("$1", 1, -1))', $str);
 }
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
@@ -561,12 +567,12 @@ function byteArrayToHexStr($b)
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
 
 
-$plainText = "A";
+$plainText = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam ornare pharetra ligula, sed facilisis magna suscipit a. Etiam quis nisi erat, eu feugiat mi. Cras eu odio sem. Proin porttitor lacinia convallis. Duis nec magna massa. Aliquam facilisis, odio eu placerat feugiat, lorem odio accumsan lacus, at fermentum magna ipsum et velit. Vivamus lobortis commodo dolor nec vestibulum. Ut ac diam non sapien sagittis scelerisque. Praesent vitae consequat purus. Suspendisse bibendum varius sapien, quis malesuada lacus mollis bibendum. Sed cursus mattis massa ut pulvinar. Praesent sed felis massa. Duis suscipit ornare purus sit amet posuere. Nullam volutpat nulla a nisi dapibus blandit. Donec at blandit massa. Nam semper, urna nec eleifend faucibus, metus velit semper arcu, at ornare purus sem et diam. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Donec elementum, lectus eu laoreet congue, justo dolor blandit leo, eget commodo erat eros non augue. ";
 
-$password = "This is a long password This is a long password";
+$password = "SuperSecret";
 
 $cipherText = AESEncryptCtr($plainText, $password, 256);
-//$decryptedText = AESDecryptCtr($cipherText, $password, 256);
+$decryptedText = AESDecryptCtr($cipherText, $password, 256);
 
-//echo $decryptedText."<br>";
+echo $decryptedText."<br>";
 echo $cipherText."<br>";
