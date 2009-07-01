@@ -146,8 +146,8 @@ class Smapsparser
         }
 
         fprintf($fh, "%'-59s\n", "-");
-        fprintf($fh, "RSS private  : %10smB Total\n", round(($this->peak['Private_Clean'] + $this->peak['Private_Dirty'])/1024,1));
-        fprintf($fh, "VM Size      : %10smB\n", round(($this->peak['Size']/1024),1));
+        fprintf($fh, "RSS private  : %10sMB Total\n", round(($this->peak['Private_Clean'] + $this->peak['Private_Dirty'])/1024,1));
+        fprintf($fh, "VM Size      : %10sMB\n", round(($this->peak['Size']/1024),1));
         fprintf($fh, "             : %10skB Shared total\n", $this->peak['Shared_Dirty'] + $this->peak["Shared_Clean"]);
         fprintf($fh, "               %10skB Private Clean\n", $this->peak['Private_Clean']);
         fprintf($fh, "               %10skB Private Dirty\n", $this->peak['Private_Dirty']);

@@ -593,7 +593,7 @@ class Benchmark
                 foreach ($results as $result) {
                     $mem       = $result['Private_Clean'] + $result['Private_Dirty'];
                     $loruntime = round($result["runtime"],1)."s (".(round($result["runtime"]/$wintime,2)*100)."%)";
-                    $lomem     = round($mem/1024,1)."mB (".round((($mem/$winmem)),1)*100 ."%)";
+                    $lomem     = round($mem/1024,1)."MB (".round((($mem/$winmem)),1)*100 ."%)";
                     printf("%-15s %-35s %-17s %-15s \n", $result['php_version'], $result['php_uname'], $loruntime,$lomem);
                 }
                 break;
