@@ -487,7 +487,7 @@ class Benchmark
     static function cmpMemusage($a,$b)
     {
         $pA = $a['Private_Dirty'] + $a['Private_Clean'];
-        $pB = $a['Private_Dirty'] + $a['Private_Clean'];
+        $pB = $b['Private_Dirty'] + $b['Private_Clean'];
         if ($pA == $pB) {
             return 0;
         }
