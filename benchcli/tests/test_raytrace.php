@@ -78,7 +78,7 @@ function renderScene(){
 
     $imageWidth = 100; // $F('imageWidth');
     $imageHeight = 100; // $F('imageHeight');
-    $pixelSize = split(',', "5,5"); //  $F('pixelSize').split(',');
+    $pixelSize = explode(',', "5,5"); //  $F('pixelSize').split(',');
     $renderDiffuse = true; // $F('renderDiffuse');
     $renderShadows = true; // $F('renderShadows');
     $renderHighlights = true; // $F('renderHighlights');
