@@ -25,7 +25,7 @@
  */
 
 
-error_reporting(E_ALL | E_NOTICE);
+error_reporting(E_ALL | E_STRICT);
 set_time_limit(0);
 /**
  * This is the main class of the benchmark script
@@ -699,6 +699,9 @@ class Benchmark
         $status = proc_get_status($handle);
         $ppid   = $status["pid"];
         $pids   = preg_split("/\s+/", trim(`ps -o pid --no-heading --ppid $ppid`));
+        if ($pids[0] == 0) {
+            $pids[0] = $ppid;
+        }
         return $pids;
     }
     /**
