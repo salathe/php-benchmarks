@@ -48,7 +48,9 @@ static $proto_typeerror;
 static $proto_urierror;
 
 static function start_once() {
-  if (get_class(jsrt::$global)=="js_object") return;
+  if (!is_null(jsrt::$global)) {
+      if (get_class(jsrt::$global)=="js_object") return;
+  }
   jsrt::start();
 }
 

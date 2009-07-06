@@ -601,10 +601,10 @@ class js_case extends js_construct {
     list($this->expr, $this->code) = func_get_args();
   }
   function emit($w=0) {
-    if ($this->expr == 0) {
-      $o = "  default:\n";
+    if (!is_object($this->expr) && $this->expr == 0) {
+          $o = "  default:\n";
     } else {
-      $o = "  case (js_bool(jsrt::expr_strict_equal(\$".$this->e.",".$this->expr->emit(1)."))):\n";
+        $o = "  case (js_bool(jsrt::expr_strict_equal(\$".$this->e.",".$this->expr->emit(1)."))):\n";
     }
     foreach ($this->code as $code) {
       $o .= "    ".trim(str_replace("\n", "\n    ", $code->emit(1)))."\n";
