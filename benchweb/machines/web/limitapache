@@ -1,0 +1,13 @@
+#!/bin/bash
+#Do a small benchmark to start the apache childs
+
+ab -n 100 -c 5 http://localhost/
+
+PIDS=$(ps -eo pid,args | grep "/usr/sbin/apache" | grep -v grep | gawk '{print $1}')
+
+for i in $PIDS
+do
+	cpulimit -p $i -l 20 -z &
+done
+
+exit

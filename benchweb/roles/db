@@ -1,0 +1,31 @@
+#!/bin/sh
+#
+#  Configure the new image to have mysql-server installed.
+#
+
+
+prefix=$1
+
+
+
+#
+#  Source our common functions - this will let us install a Debian package.
+#
+if [ -e /usr/lib/xen-tools/common.sh ]; then
+    . /usr/lib/xen-tools/common.sh
+else
+    echo "Installation problem"
+fi
+
+
+#
+#  Install packages.
+#
+installDebianPackage ${prefix} mysql-server
+
+
+#
+#  Update APT lists.
+#
+chroot ${prefix} /usr/bin/apt-get update
+

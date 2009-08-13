@@ -1,0 +1,30 @@
+#!/bin/sh
+#
+#  Configure the new image to serve as benchmarking client.
+#
+
+
+prefix=$1
+
+
+
+#
+#  Source our common functions - this will let us install a Debian package.
+#
+if [ -e /usr/lib/xen-tools/common.sh ]; then
+    . /usr/lib/xen-tools/common.sh
+else
+    echo "Installation problem"
+fi
+
+
+#
+#  Install packages.
+#
+installDebianPackage ${prefix} php5-cli
+installDebianPackage ${prefix} php5-curl
+#
+#  Update APT lists.
+#
+chroot ${prefix} /usr/bin/apt-get update
+
