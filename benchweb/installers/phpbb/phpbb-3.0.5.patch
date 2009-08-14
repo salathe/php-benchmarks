@@ -1,0 +1,82 @@
+diff -uNr phpBB3/configdef.php phpBB3-mod/configdef.php
+--- phpBB3/configdef.php	1969-12-31 18:00:00.000000000 -0600
++++ phpBB3-mod/configdef.php	2009-08-14 03:52:49.000000000 -0500
+@@ -0,0 +1,17 @@
++<?php
++
++// Configuration file for PHPBB3
++
++$dbms   = 'mysqli';
++$dbhost = 'sqlhost';
++$dbport = '';
++$dbname = 'sqldb';
++$dbuser = 'sqluser';
++$dbpasswd = 'sqlpass';
++$table_prefix = 'phpbb_';
++$acm_type = 'file';
++$load_extensions = '';
++
++@define('PHPBB_INSTALLED',true);
++
++?>
+diff -uNr phpBB3/includes/functions.php phpBB3-mod/includes/functions.php
+--- phpBB3/includes/functions.php	2009-05-31 05:58:58.000000000 -0500
++++ phpBB3-mod/includes/functions.php	2009-08-14 03:52:49.000000000 -0500
+@@ -2377,7 +2377,7 @@
+ 		$creation_time	= abs(request_var('creation_time', 0));
+ 		$token = request_var('form_token', '');
+ 
+-		$diff = time() - $creation_time;
++		$diff = time() + 2 - $creation_time;
+ 
+ 		// If creation_time and the time() now is zero we can assume it was not a human doing this (the check for if ($diff)...
+ 		if ($diff && ($diff <= $timespan || $timespan === -1))
+@@ -3985,4 +3985,4 @@
+ 	return;
+ }
+ 
+-?>
+\ No newline at end of file
++?>
+diff -uNr phpBB3/install.php phpBB3-mod/install.php
+--- phpBB3/install.php	1969-12-31 18:00:00.000000000 -0600
++++ phpBB3-mod/install.php	2009-08-14 03:52:48.000000000 -0500
+@@ -0,0 +1,18 @@
++<?php
++//This file will install phpBB3 to the webserver with an mysql connection
++//to $_GET['db_ip'] along with $_GET['db_name'],$_GET['db_pass'],$_GET['db_user']
++error_reporting(E_ALL);
++
++$db_ip    = $_GET['db_ip'];
++$db_name  = $_GET['db_name'];
++$db_pass  = $_GET['db_pass'];
++$db_user  = $_GET['db_user'];
++$hostname = $_SERVER['SERVER_ADDR'];
++$data = file_get_contents("configdef.php");
++$data = str_replace("sqlhost",$db_ip,$data);
++$data = str_replace("sqldb",$db_name,$data);
++$data = str_replace("sqluser",$db_user,$data);
++$data = str_replace("sqlpass",$db_pass,$data);
++$data = str_replace("domain",$hostname,$data);
++file_put_contents("config.php",$data);
++?>
+diff -uNr phpBB3/posting.php phpBB3-mod/posting.php
+--- phpBB3/posting.php	2009-05-31 05:58:57.000000000 -0500
++++ phpBB3-mod/posting.php	2009-08-14 03:52:48.000000000 -0500
+@@ -47,7 +47,8 @@
+ 
+ 
+ // Was cancel pressed? If so then redirect to the appropriate page
+-if ($cancel || ($current_time - $lastclick < 2 && $submit))
++//if ($cancel || ($current_time - $lastclick < 2 && $submit))
++if($cancel) //Hard to bench otherwise
+ {
+ 	$f = ($forum_id) ? 'f=' . $forum_id . '&amp;' : '';
+ 	$redirect = ($post_id) ? append_sid("{$phpbb_root_path}viewtopic.$phpEx", $f . 'p=' . $post_id) . '#p' . $post_id : (($topic_id) ? append_sid("{$phpbb_root_path}viewtopic.$phpEx", $f . 't=' . $topic_id) : (($forum_id) ? append_sid("{$phpbb_root_path}viewforum.$phpEx", 'f=' . $forum_id) : append_sid("{$phpbb_root_path}index.$phpEx")));
+@@ -1501,4 +1502,4 @@
+ 	trigger_error('USER_CANNOT_DELETE');
+ }
+ 
+-?>
+\ No newline at end of file
++?>

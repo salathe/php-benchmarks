@@ -31,6 +31,7 @@ $timerecord = array();
 $VERBOSE = TRUE;
 while($x < $tot_rec) {
         $cur = num_childs();
+	usleep(200);
         if ($cur < $concurrency)
         {
                 $pid = pcntl_fork();

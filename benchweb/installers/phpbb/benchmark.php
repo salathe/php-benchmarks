@@ -1,7 +1,7 @@
 <?php
 
 $file_ips = "../../ips.txt";
-require "../../functions.php";
+require "../../config.php";
 $server = unserialize(file_get_contents($file_ips));
 
 if ($argc != 3) {
@@ -12,7 +12,7 @@ if ($argc != 3) {
 }
 echo "Benchmark has started\n";
 echo "*********************\n";
-passthru("ssh -f -oUserKnownHostsFile=/home/phpappbench/known_hosts -oStrictHostKeyChecking=no root@192.168.0.151 \"php /home/bench/benchmark.php $argv[1] $argv[2]\"");
+passthru("ssh -f -oUserKnownHostsFile={$HOME_DIR}known_hosts -oStrictHostKeyChecking=no root@192.168.0.151 \"php /home/bench/benchmark.php $argv[1] $argv[2]\"");
 echo "*********************\n";
 echo "Benchmark has ended\n";
 ?>
